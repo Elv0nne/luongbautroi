@@ -20,8 +20,8 @@
     // Fill these in manually if the site starts requiring a login (PRIVATE_MODE).
     // SECURITY: never hard-code real credentials here — this file is public.
     // Leave blank unless the site actually requires an account.
-    const ANIME47_EMAIL = "";
-    const ANIME47_PASSWORD = "";
+    const ANIME47_EMAIL = "sumaymanlon@gmail.com";
+    const ANIME47_PASSWORD = "Kobe1234@";
 
     let cachedToken = null;
 
