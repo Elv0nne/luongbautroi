@@ -1,0 +1,19 @@
+[
+  {
+    "packageName": "com.recloudstream.anime47.anime47",
+    "name": "Anime47",
+    "version": 1,
+    "baseUrl": "https://anime47.best",
+    "description": "Anime47 - Vietnamese-subbed anime provider (ported from the CloudStream Anime47Provider).",
+    "authors": [
+      "ThitboKobe"
+    ],
+    "languages": [
+      "vi"
+    ],
+    "categories": [
+      "Anime"
+    ],
+    "url": "https://raw.githubusercontent.com/Elv0nne/luongbautroi/main/dist/com.recloudstream.anime47.anime47.sky"
+  }
+]
