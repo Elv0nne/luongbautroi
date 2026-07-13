@@ -121,6 +121,7 @@
     async function getHome(cb) {
         try {
             const data = {};
+            const errors = [];
             await Promise.all(
                 MAIN_CATEGORIES.map(async (cat) => {
                     try {
@@ -128,10 +129,17 @@
                         const posts = (json && json.data && json.data.posts) || [];
                         data[cat.name] = posts.map(toItem).filter(Boolean);
                     } catch (e) {
+                        // DEBUG: surface the real error instead of silently returning [].
+                        errors.push(`${cat.name}: ${e && e.message ? e.message : String(e)}`);
                         data[cat.name] = [];
                     }
                 })
             );
+            if (errors.length === MAIN_CATEGORIES.length) {
+                // Every single category failed — this is almost certainly a real bug
+                // (network/API/parsing), not just one dead endpoint. Surface it.
+                return cb({ success: false, errorCode: "UNKNOWN", message: errors.join(" | ") });
+            }
             cb({ success: true, data });
         } catch (e) {
             cb({ success: false, errorCode: "UNKNOWN", message: String(e) });
