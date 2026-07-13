@@ -94,9 +94,14 @@
     // This runtime does not expose `fetch`; only http_get / http_post / http_parallel
     // are available (confirmed via runtime probing). http_get supports:
     //   await http_get(url, headers) -> { code, statusCode, status, body, headers, finalUrl }
+    let lastLoginError = null;
+
     async function ensureToken() {
         if (cachedToken) return cachedToken;
-        if (!ANIME47_EMAIL || !ANIME47_PASSWORD) return null;
+        if (!ANIME47_EMAIL || !ANIME47_PASSWORD) {
+            lastLoginError = "no_credentials";
+            return null;
+        }
         try {
             const res = await http_post(
                 `${API_BASE}/auth/login`,
@@ -107,11 +112,25 @@
                     "referer": REFERER
                 }
             );
-            const bodyText = res && (res.body || res.text);
+            const status = res && (res.statusCode || res.status || res.code);
+            const bodyText = res && (res.body !== undefined ? res.body : res.text);
+            const bodyStr = typeof bodyText === "string" ? bodyText : JSON.stringify(bodyText);
+
+            if (typeof status === "number" && (status < 200 || status >= 300)) {
+                lastLoginError = `login HTTP ${status} :: ${bodyStr.slice(0, 150)}`;
+                return null;
+            }
+
             const json = typeof bodyText === "string" ? JSON.parse(bodyText) : bodyText;
             cachedToken = (json && json.access_token) || null;
+            if (!cachedToken) {
+                lastLoginError = `login response had no access_token :: ${bodyStr.slice(0, 150)}`;
+            } else {
+                lastLoginError = null;
+            }
             return cachedToken;
         } catch (e) {
+            lastLoginError = `login threw: ${e && e.message ? e.message : String(e)}`;
             return null;
         }
     }
@@ -124,9 +143,12 @@
         const text = res && (res.body !== undefined ? res.body : res.text);
         const textStr = typeof text === "string" ? text : JSON.stringify(text);
 
-        if (textStr.includes('"PRIVATE_MODE"')) {
+        if (textStr.includes('"PRIVATE_MODE"') || status === 401) {
+            const reason = lastLoginError
+                ? ` (Chi tiết: ${lastLoginError})`
+                : "";
             throw new Error(
-                "Trang web yêu cầu đăng nhập. Vui lòng điền ANIME47_EMAIL / ANIME47_PASSWORD trong plugin.js."
+                `Trang web yêu cầu đăng nhập. Vui lòng điền ANIME47_EMAIL / ANIME47_PASSWORD trong plugin.js.${reason}`
             );
         }
         if (typeof status === "number" && (status < 200 || status >= 300)) {
