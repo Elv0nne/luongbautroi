@@ -18,6 +18,8 @@
     const REFERER = `${manifest.baseUrl}/`;
 
     // Fill these in manually if the site starts requiring a login (PRIVATE_MODE).
+    // SECURITY: never hard-code real credentials here — this file is public.
+    // Leave blank unless the site actually requires an account.
     const ANIME47_EMAIL = "sumaymanlon@gmail.com";
     const ANIME47_PASSWORD = "Kobe1234@";
 
@@ -62,11 +64,23 @@
         return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
     }
 
+    // The original Kotlin plugin showed the episode count on every card via
+    // addDubStatus(DubStatus.Subbed, episodes). MultimediaItem has no direct
+    // "episode count" field, so we fold it into the title (e.g. "Title [12 tập]")
+    // to avoid silently dropping that information.
+    function episodeCountSuffix(episodesStr) {
+        if (!episodesStr) return "";
+        const digitsOnly = String(episodesStr).replace(/\D/g, "");
+        const n = digitsOnly ? parseInt(digitsOnly, 10) : NaN;
+        return Number.isFinite(n) && n > 0 ? ` [${n} tập]` : "";
+    }
+
     function toItem(post) {
         const link = fixUrl(post.link);
         if (!link) return null;
+        const epSuffix = episodeCountSuffix(post.current_episode || post.episodes);
         return new MultimediaItem({
-            title: post.title,
+            title: (post.title || "") + epSuffix,
             url: link,
             posterUrl: fixUrl(post.poster || post.image) || "",
             // SkyStream has no separate "cartoon" type. The original always used
@@ -112,7 +126,8 @@
     }
 
     function extractAnimeId(url) {
-        const match = url.replace(/\/$/, "").match(/(\d+)(?:\.html\/?)?$/);
+        // Matches the original Kotlin: Regex("(\\d+)(?:\\.html|/)?$")
+        const match = url.replace(/\/$/, "").match(/(\d+)(?:\.html|\/)?$/);
         return match ? match[1] : null;
     }
 
@@ -121,6 +136,7 @@
     async function getHome(cb) {
         try {
             const data = {};
+            const errors = [];
             await Promise.all(
                 MAIN_CATEGORIES.map(async (cat) => {
                     try {
@@ -128,10 +144,16 @@
                         const posts = (json && json.data && json.data.posts) || [];
                         data[cat.name] = posts.map(toItem).filter(Boolean);
                     } catch (e) {
+                        errors.push(`${cat.name}: ${e && e.message ? e.message : String(e)}`);
                         data[cat.name] = [];
                     }
                 })
             );
+            // If every category failed, surface a real error instead of silently
+            // returning an empty dashboard.
+            if (errors.length === MAIN_CATEGORIES.length) {
+                return cb({ success: false, errorCode: "UNKNOWN", message: errors.join(" | ") });
+            }
             cb({ success: true, data });
         } catch (e) {
             cb({ success: false, errorCode: "UNKNOWN", message: String(e) });
@@ -146,8 +168,9 @@
                 .map((item) => {
                     const link = fixUrl(item.link);
                     if (!link) return null;
+                    const epSuffix = episodeCountSuffix(item.current_episode || item.episodes);
                     return new MultimediaItem({
-                        title: item.title,
+                        title: (item.title || "") + epSuffix,
                         url: link,
                         posterUrl: fixUrl(item.image) || "",
                         type: "anime"
@@ -207,8 +230,9 @@
                 .map((item) => {
                     const link = fixUrl(item.link);
                     if (!link) return null;
+                    const epSuffix = episodeCountSuffix(item.current_episode || item.episodes);
                     return new MultimediaItem({
-                        title: item.title || "",
+                        title: (item.title || "") + epSuffix,
                         url: link,
                         posterUrl: fixUrl(item.poster) || "",
                         type: "anime",
